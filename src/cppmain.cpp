@@ -23,6 +23,7 @@
 #include <mutex>
 
 #define TRIG_TIMEOUT 1
+#define TRIALS 4
 
 volatile sig_atomic_t done = 0;
 volatile sig_atomic_t ready = 0;
@@ -62,7 +63,7 @@ void timespec_diff(struct timespec *start, struct timespec *stop,
     return;
 }
 
-void thread_fcn_rl(std::mutex mutex) // remote lock, on both recurse and non recurse mutex
+void thread_fcn_rl(std::mutex &mutex) // remote lock, on both recurse and non recurse mutex
 {
     uint64_t count = 0;
     struct timespec start, end, diff;
@@ -74,6 +75,7 @@ void thread_fcn_rl(std::mutex mutex) // remote lock, on both recurse and non rec
     {
         mutex.try_lock();
         count++;
+        // dbprintlf("Count: %d", count);
     }
     clock_gettime(CLOCK_REALTIME, &end);
     timespec_diff(&start, &end, &diff);
@@ -81,7 +83,7 @@ void thread_fcn_rl(std::mutex mutex) // remote lock, on both recurse and non rec
     return;
 }
 
-void thread_fcn_rlr(std::recursive_mutex mutex) // remote lock, on both recurse and non recurse mutex
+void thread_fcn_rlr(std::recursive_mutex &mutex) // remote lock, on both recurse and non recurse mutex
 {
     uint64_t count = 0;
     struct timespec start, end, diff;
@@ -91,8 +93,9 @@ void thread_fcn_rlr(std::recursive_mutex mutex) // remote lock, on both recurse 
     clock_gettime(CLOCK_REALTIME, &start); // get current time
     while (!done) // keep going until main stops you
     {
-        mutex.try_lock();
+        /* bool retval =  */mutex.try_lock();
         count++;
+        // dbprintlf("Retval: %s (%d); Count: %d", retval ? "True" : "False", retval, count);
     }
     clock_gettime(CLOCK_REALTIME, &end);
     timespec_diff(&start, &end, &diff);
@@ -100,7 +103,7 @@ void thread_fcn_rlr(std::recursive_mutex mutex) // remote lock, on both recurse 
     return;
 }
 
-void thread_fcn_sl(std::recursive_mutex mutex) // self lock, only on recursive
+void thread_fcn_sl(std::recursive_mutex &mutex) // self lock, only on recursive
 {
     uint32_t i_ = INT32_MAX / 100, i = i_;
     struct timespec start, end, diff;
@@ -134,35 +137,54 @@ int main()
     struct timespec start, stop, result;
 
     // CASE 1
+    dbprintlf(UNDER_ON "CASE ONE");
     std::mutex m;
-    std::thread thr(thread_fcn_rl, m);
-    while (!ready); // wait until slave signals ready
-    m.lock();
-    ready = 0;
-    sleep(TRIG_TIMEOUT);
-    done = 1;
-    thr.join();
-    m.unlock();
-    // CASE 2
-    std::recursive_mutex m_;
-    done = 0;
-    std::thread thr2(thread_fcn_rlr, m_);
-    while (!ready); // wait until slave signals ready
-    m_.lock();
-    ready = 0;
-    sleep(TRIG_TIMEOUT);
-    thr2.join();
-    m_.unlock();
+    for (int i = 0; i < TRIALS; i++)
+    {
+        // dbprintlf(GREEN_FG "Beginning thread.");
+        std::thread thr(thread_fcn_rl, std::ref(m));
+        while (!ready); // wait until slave signals ready
+        // dbprintlf(GREEN_FG "LOCKING.");
+        m.lock();
+        ready = 0;
+        sleep(TRIG_TIMEOUT);
+        done = 1;
+        // dbprintlf(GREEN_FG "JOINING.");
+        thr.join();
+        // dbprintlf(GREEN_FG "UNLOCKING.");
+        m.unlock();
+    }
 
     // CASE 3
-    std::thread thr3(thread_fcn_sl, m_);
-    thr3.join();
+    dbprintlf(UNDER_ON "CASE TWO");
+    std::recursive_mutex m_;
+    for (int i = 0; i < TRIALS; i++)
+    {
+        // CASE 2
+        done = 0;
+        std::thread thr2(thread_fcn_rlr, std::ref(m_));
+        while (!ready); // wait until slave signals ready
+        m_.lock();
+        ready = 0;
+        sleep(TRIG_TIMEOUT);
+        done = 1; // Why wasn't this here before?
+        thr2.join();
+        m_.unlock();        
+    }
+
+    dbprintlf(UNDER_ON "CASE THREE");
+    for (int i = 0; i < TRIALS; i++)
+    {
+        std::thread thr3(thread_fcn_sl, std::ref(m_));
+        thr3.join();
+    }
 
     // CLEANUP
 
     clock_gettime(CLOCK_REALTIME, &stop);
     timespec_diff(&start, &stop, &result);
-    bprintf(BLUE_FG "[%s] Program Elapsed Time: %ld.%09ld ", fname, result.tv_sec, result.tv_nsec);
+    dbprintlf(YELLOW_FG "[WARN] Notice: The Program Elapsed Time is probably incorrect.");
+    bprintlf(BLUE_FG "[%s] Program Elapsed Time: %ld.%09ld ", fname, result.tv_sec, result.tv_nsec);
 
     return 0;
 }

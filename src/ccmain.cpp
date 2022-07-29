@@ -177,7 +177,7 @@ int main()
         done = 0;
     }
 
-    dbprintlf(UNDER_ON "CASE ONE");
+    dbprintlf(UNDER_ON "CASE TWO");
     for (int i = 0; i < TRIALS; i++)
     {
         // CASE 2
@@ -200,7 +200,7 @@ int main()
     }
 
     // CASE 3
-    dbprintlf(UNDER_ON "CASE ONE");
+    dbprintlf(UNDER_ON "CASE THREE");
     for (int i = 0; i < TRIALS; i++)
     {
         pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -217,7 +217,7 @@ int main()
 
     clock_gettime(CLOCK_REALTIME, &stop);
     timespec_diff(&start, &stop, &result);
-    bprintf(BLUE_FG "[%s] Program Elapsed Time: %ld.%09ld ", fname, result.tv_sec, result.tv_nsec);
+    bprintlf(BLUE_FG "[%s] Program Elapsed Time: %ld.%09ld ", fname, result.tv_sec, result.tv_nsec);
 
     return 0;
 }

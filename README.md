@@ -12,3 +12,6 @@ G++ Compiled C
 
 G++ Compiled C++  
 `make cppmain`
+
+## Known Issues
+The G++ compiled C++ test program's total program run timer prints incorrectly.

@@ -135,6 +135,7 @@ int main()
     get_current_fname(fname);
     bprintlf(GREEN_FG "Program: %s", fname);
     struct timespec start, stop, result;
+    clock_gettime(CLOCK_REALTIME, &start);
 
     // CASE 1
     dbprintlf(UNDER_ON "CASE ONE");
@@ -183,7 +184,6 @@ int main()
 
     clock_gettime(CLOCK_REALTIME, &stop);
     timespec_diff(&start, &stop, &result);
-    dbprintlf(YELLOW_FG "[WARN] Notice: The Program Elapsed Time is probably incorrect.");
     bprintlf(BLUE_FG "[%s] Program Elapsed Time: %ld.%09ld ", fname, result.tv_sec, result.tv_nsec);
 
     return 0;
